@@ -80,13 +80,21 @@ export function computeProjection(s: ProjectionSettings): ProjectionResult {
         : null,
   };
 
-  // Quantos ciclos já se passaram desde startDate
+  // Quantos ciclos já se passaram desde startDate.
   const now = new Date();
   const start = new Date(`${s.startDate}T00:00:00`);
   const weeks = (now.getTime() - start.getTime()) / (7 * 24 * 3600 * 1000);
-  const cyclesElapsed = Math.max(0, weeks * s.cyclesPerWeek);
-  const expectedBankrollToday =
-    s.initialBankroll * Math.pow(1 + rates.base, cyclesElapsed);
+  // Cap nos ciclos da meta (cenário base): após atingir a meta no plano,
+  // não faz sentido a "banca esperada hoje" continuar crescendo ao infinito.
+  const elapsedRaw = Math.max(0, weeks * s.cyclesPerWeek);
+  const cyclesElapsed =
+    cyclesToTarget.base != null
+      ? Math.min(elapsedRaw, cyclesToTarget.base)
+      : elapsedRaw;
+  const expectedBankrollToday = Math.min(
+    s.targetBankroll,
+    s.initialBankroll * Math.pow(1 + rates.base, cyclesElapsed)
+  );
 
   return {
     points,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -20,7 +20,8 @@ import {
   buildEquityCurve,
 } from "../lib/calculations";
 import { buildAlerts, isBackupLate } from "../lib/alerts";
-import { runMonteCarlo } from "../lib/monteCarlo";
+import { type MonteCarloResult } from "../lib/monteCarlo";
+import { runMonteCarloAsync } from "../lib/runMonteCarloAsync";
 import { formatBRL, formatPct, formatNumber, formatDateBR } from "../lib/format";
 import { StatCard, Card, SectionTitle, Sheet, Badge } from "../components/ui";
 import { AlertList } from "../components/AlertList";
@@ -47,11 +48,16 @@ export default function Today({ onNavigate }: { onNavigate: (t: TabKey) => void 
     [bets, movements]
   );
 
-  const mc = useMemo(() => {
-    if (!m || !rules || m.activeBankroll <= 0) return null;
+  const [mc, setMc] = useState<MonteCarloResult | null>(null);
+  useEffect(() => {
+    if (!m || !rules || m.activeBankroll <= 0) {
+      setMc(null);
+      return;
+    }
+    let active = true;
     const winP = m.winRate > 0 ? m.winRate : 0.5;
     const avgO = m.avgOdds > 1 ? m.avgOdds : 1.9;
-    return runMonteCarlo({
+    runMonteCarloAsync({
       initialBankroll: m.activeBankroll,
       targetBankroll: rules.targetBankroll,
       stopBankroll: Math.max(1, m.activeBankroll * 0.2),
@@ -63,7 +69,12 @@ export default function Today({ onNavigate }: { onNavigate: (t: TabKey) => void 
       maxStake: rules.targetBankroll,
       numberOfBets: 500,
       numberOfSimulations: 800,
+    }).then((r) => {
+      if (active) setMc(r);
     });
+    return () => {
+      active = false;
+    };
   }, [m, rules]);
 
   if (!ready || !m) {

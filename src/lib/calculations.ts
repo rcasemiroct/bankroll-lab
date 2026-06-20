@@ -100,8 +100,11 @@ export function computeMetrics(
     withdrawalsTotal +
     realizedProfit;
 
-  // Fórmula do brief: lucro líquido real = banca ativa + retiradas - depósitos
-  const netRealProfit = activeBankroll + withdrawalsTotal - depositsTotal;
+  // Lucro líquido real = o que você ganhou ALÉM do que aportou.
+  // Parte do brief (banca ativa + retiradas - depósitos), mas removendo o bônus:
+  // bônus é dinheiro da casa, não seu, então não conta como lucro.
+  const netRealProfit =
+    activeBankroll + withdrawalsTotal - depositsTotal - bonusTotal;
 
   const wins = settled.filter((b) => b.status === "win").length;
   const losses = settled.filter((b) => b.status === "loss").length;
@@ -213,20 +216,50 @@ export function buildEquityCurve(
   return Array.from(byDate.values());
 }
 
+// Drawdown deve refletir DESEMPENHO de apostas, não fluxo de caixa.
+// Usamos um high-water mark ajustado por fluxo: depósitos/retiradas movem o pico
+// na mesma proporção, então só o resultado das apostas gera drawdown/novo topo.
+// Assim, retirar lucro não vira "drawdown" e depositar não vira "queda futura".
 function computeDrawdown(bets: Bet[], movements: BankrollMovement[]) {
-  const curve = buildEquityCurve(bets, movements);
-  let peak = 0;
-  let maxDd = 0;
-  let last = 0;
-  for (const p of curve) {
-    if (p.bankroll > peak) peak = p.bankroll;
-    if (peak > 0) {
-      const dd = (peak - p.bankroll) / peak;
-      if (dd > maxDd) maxDd = dd;
-    }
-    last = p.bankroll;
+  type Ev = { date: string; createdAt: string; flow: number; profit: number };
+  const events: Ev[] = [];
+  for (const m of movements) {
+    let flow = 0;
+    if (m.type === "deposit" || m.type === "bonus") flow = m.amount;
+    else if (m.type === "withdrawal") flow = -m.amount;
+    else if (m.type === "adjustment") flow = m.amount;
+    events.push({ date: m.date, createdAt: m.createdAt, flow, profit: 0 });
   }
-  const currentDrawdown = peak > 0 ? Math.max(0, (peak - last) / peak) : 0;
+  for (const b of bets) {
+    if (b.status === "pending") continue;
+    events.push({ date: b.date, createdAt: b.updatedAt, flow: 0, profit: b.profit });
+  }
+  events.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
+  });
+
+  let equity = 0; // banca corrente
+  let peak = 0; // topo ajustado por fluxo
+  let maxDd = 0;
+  for (const e of events) {
+    if (e.flow !== 0) {
+      // fluxo externo: desloca banca e pico juntos (neutro para o drawdown)
+      equity += e.flow;
+      peak += e.flow;
+      if (peak < 0) peak = 0;
+      if (equity > peak) peak = equity;
+    } else {
+      // resultado de aposta: pode criar novo topo (ganho) ou drawdown (perda)
+      equity += e.profit;
+      if (equity > peak) peak = equity;
+      if (peak > 0) {
+        const dd = (peak - equity) / peak;
+        if (dd > maxDd) maxDd = dd;
+      }
+    }
+  }
+  const currentDrawdown = peak > 0 ? Math.max(0, (peak - equity) / peak) : 0;
   return { currentDrawdown, maxDrawdown: maxDd, peakBankroll: peak };
 }
 

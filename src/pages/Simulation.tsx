@@ -13,7 +13,8 @@ import {
   useSimulationSettings,
   saveSimulationSettings,
 } from "../store/data";
-import { runMonteCarlo, type MonteCarloResult } from "../lib/monteCarlo";
+import { type MonteCarloResult } from "../lib/monteCarlo";
+import { runMonteCarloAsync } from "../lib/runMonteCarloAsync";
 import { formatBRL, formatPct, formatNumber } from "../lib/format";
 import { Card, Field, StatCard, SectionTitle, SegmentedControl } from "../components/ui";
 import { ChartCard, axisStyle, brlAxis, COLORS } from "../components/charts";
@@ -40,11 +41,10 @@ export default function Simulation() {
 
   const run = () => {
     setRunning(true);
-    // pequeno delay para a UI atualizar antes do cálculo síncrono
-    setTimeout(() => {
-      setResult(runMonteCarlo(s));
+    runMonteCarloAsync(s).then((r) => {
+      setResult(r);
       setRunning(false);
-    }, 20);
+    });
   };
 
   const impliedNeeded = s.averageOdds > 0 ? 1 / s.averageOdds : 0;

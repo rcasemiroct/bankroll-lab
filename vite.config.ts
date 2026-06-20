@@ -8,6 +8,25 @@ const REPO_BASE = "/bankroll-lab/";
 
 export default defineConfig({
   base: REPO_BASE,
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // Separa só a lib de gráficos (a mais pesada) num chunk próprio.
+        // Evita dividir react/dexie para não criar dependências circulares entre chunks.
+        manualChunks(id) {
+          if (
+            id.includes("node_modules") &&
+            (id.includes("recharts") ||
+              id.includes("/d3-") ||
+              id.includes("victory-vendor"))
+          ) {
+            return "charts";
+          }
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

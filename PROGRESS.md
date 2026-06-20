@@ -21,6 +21,17 @@ Documento de continuidade. Se o trabalho parar e recomeçar em outro ciclo, leia
 
 > Observação sobre o `.git`: o sandbox de build não consegue apagar arquivos `.lock` que ele mesmo cria neste mount. Por isso o `.git` foi deixado pela metade. No seu Mac você é dono dos arquivos e consegue apagar normalmente. Faça `rm -rf .git` antes do `git init`.
 
+## Ciclo 2 — correções da auditoria (concluído)
+
+- [x] **#1 Drawdown sobre desempenho.** `computeDrawdown` agora usa high-water mark ajustado por fluxo: depósito/retirada deslocam o pico junto, então só resultado de aposta gera drawdown. Acaba com falso "risco de ruína" ao retirar lucro.
+- [x] **#2 Monte Carlo em Web Worker.** `monteCarlo.worker.ts` + `runMonteCarloAsync` (com fallback síncrono). Telas Hoje e Simulação não travam mais a UI.
+- [x] **#3 Bônus fora do lucro.** `netRealProfit` deixou de contar bônus (dinheiro da casa).
+- [x] **#4 Projeção capada.** `expectedBankrollToday`/`cyclesElapsed` limitados pela meta; sem valores irreais com data antiga.
+- [x] **#5 Alertas priorizados.** `AlertList` ordena por severidade (perda > risco > disciplina > ganho), mostra 3 e "ver mais".
+- [x] **#6 Code-splitting.** `manualChunks` separa recharts/d3 em `charts`. Casca caiu de ~689 kB para ~163 kB.
+
+Build e `tsc --noEmit` limpos após as mudanças.
+
 ## Próximas evoluções (pós-MVP)
 
 - Sistema de snapshots completo (tabela `snapshots`, checksum, gatilhos: daily / before_import / before_reset / after_10_bets / withdrawal_milestone / manual), com tela "Ver/Restaurar snapshots".

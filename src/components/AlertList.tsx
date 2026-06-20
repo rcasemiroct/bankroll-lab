@@ -1,5 +1,14 @@
+import { useState } from "react";
 import type { InternalAlert } from "../types";
 import { cn } from "./ui";
+
+// Ordem de prioridade: perda primeiro, depois risco, disciplina e por fim ganho.
+const SEVERITY_ORDER: Record<InternalAlert["severity"], number> = {
+  loss: 0,
+  risk: 1,
+  discipline: 2,
+  gain: 3,
+};
 
 const STYLE: Record<
   InternalAlert["severity"],
@@ -27,7 +36,15 @@ const STYLE: Record<
   },
 };
 
-export function AlertList({ alerts }: { alerts: InternalAlert[] }) {
+export function AlertList({
+  alerts,
+  maxVisible = 3,
+}: {
+  alerts: InternalAlert[];
+  maxVisible?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
   if (alerts.length === 0) {
     return (
       <div className="card p-4 flex items-center gap-3">
@@ -38,9 +55,16 @@ export function AlertList({ alerts }: { alerts: InternalAlert[] }) {
       </div>
     );
   }
+
+  const sorted = [...alerts].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+  );
+  const visible = expanded ? sorted : sorted.slice(0, maxVisible);
+  const hidden = sorted.length - visible.length;
+
   return (
     <div className="space-y-2">
-      {alerts.map((a) => {
+      {visible.map((a) => {
         const s = STYLE[a.severity];
         return (
           <div
@@ -63,6 +87,14 @@ export function AlertList({ alerts }: { alerts: InternalAlert[] }) {
           </div>
         );
       })}
+      {(hidden > 0 || expanded) && sorted.length > maxVisible && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full text-center text-sm text-slate-500 dark:text-slate-400 py-2 underline underline-offset-4"
+        >
+          {expanded ? "Ver menos" : `Ver mais ${hidden} alerta(s)`}
+        </button>
+      )}
     </div>
   );
 }
